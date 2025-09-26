@@ -1,14 +1,18 @@
 from dotenv import load_dotenv
 
 load_dotenv()
-# 各種ライブラリの読み込み
+import os
 import streamlit as st
 from dotenv import load_dotenv
-from langchain.chat_models import ChatOpenAI
-from langchain.schema import SystemMessage, HumanMessage
+from langchain_openai import ChatOpenAI   # ← ここがポイント！
+from langchain_core.messages import SystemMessage, HumanMessage
 
 # 環境変数の読み込み
 load_dotenv()
+
+# テーマの選択肢を用意（関数より前に定義）
+theme_1 = "運動"
+theme_2 = "サッカー"
 
 def get_llm_response(user_message, selected_theme):
     """
@@ -19,25 +23,29 @@ def get_llm_response(user_message, selected_theme):
 
     # 選択テーマに応じて使用するプロンプトのシステムメッセージを分岐
     if selected_theme == theme_1:
-        system_message = """
-            あなたは運動の専門家です。専門家としてユーザーからの質問に回答してください。
-            学術的な知識を用いて、具体的かつ実践的なアドバイスを提供してください。
-        """
+        system_message = (
+            "あなたは運動の専門家です。専門家としてユーザーからの質問に回答してください。"
+            "学術的な知識を用いて、具体的かつ実践的なアドバイスを提供してください。"
+        )
     else:
-        system_message = """
-            あなたはサッカー専門家です。専門家としてユーザーからの質問に回答してください。
-            有名選手の実例をあげて説明してください。
-        """
+        system_message = (
+            "あなたはサッカー専門家です。専門家としてユーザーからの質問に回答してください。"
+            "有名選手の実例をあげて説明してください。"
+        )
     
     # メッセージリストの用意
     messages = [
         SystemMessage(content=system_message),
         HumanMessage(content=user_message)
     ]
-    # LLMからの回答取得
-    response = llm(messages)
 
-    return response.content
+    # LLMからの回答取得（例外処理を追加）
+    try:
+        response = llm(messages)
+        # ChatOpenAIの呼び出しは AIMessage を返す想定 → content を使う
+        return response.content if hasattr(response, "content") else str(response)
+    except Exception as e:
+        return f"エラーが発生しました: {e}"
 
 
 # 案内文の表示
@@ -62,9 +70,12 @@ user_message = st.text_input(label="相談内容を入力してください")
 
 # ボタン
 if st.button("送信"):
-    # 区切り線
-    st.divider()
-    # LLMからの回答取得
-    response = get_llm_response(user_message, selected_theme)
-    # LLMからの回答表示
-    st.write(response)
+    # 入力チェック
+    if not user_message or not user_message.strip():
+        st.warning("相談内容を入力してください。")
+    else:
+        st.divider()
+        with st.spinner("回答を生成中..."):
+            response = get_llm_response(user_message, selected_theme)
+        # LLMからの回答表示
+        st.write(response)
